@@ -7,19 +7,23 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/spf13/cobra"
 )
 
 // 巴法云私钥
-const clientID = "0c02529a94f04e41a4999b8dc7058047"
+var clientID string
 
 // 主题值
-const topic = "PVElxc100001"
+var topic string
 
-// ipmitool命令路径
+// 执行的命令
+var command string
 
 // 发送状态到巴法云
 func sendStatusToBemfa(status string) error {
@@ -84,8 +88,8 @@ func handleReceivedData(data []byte, mutex *sync.Mutex) {
 	dataStr := string(data)
 	if strings.Contains(dataStr, "cmd=2") && strings.Contains(dataStr, "msg=off") {
 		// 执行命令
-		fmt.Println("执行命令: shutdown now")
-		cmd := exec.Command("shutdown", "now")
+		fmt.Printf("执行命令: %s\n", command)
+		cmd := exec.Command("bash", "-c", command)
 		var out bytes.Buffer
 		cmd.Stdout = &out
 		err := cmd.Run()
@@ -98,57 +102,76 @@ func handleReceivedData(data []byte, mutex *sync.Mutex) {
 }
 
 func main() {
-	// 连接到TCP服务器
-	var conn *net.Conn
-	var err error
-	for i := 0; i < 3; i++ {
-		conn, err = connectTCP()
-		if err != nil {
-			fmt.Println("连接失败:", err)
-			time.Sleep(2 * time.Second)
-			continue
-		}
-		break
-	}
-	if err != nil {
-		fmt.Println("连接失败，退出程序")
-		return
-	}
-	defer (*conn).Close()
-
-	// 使用互斥锁保护TCP连接
-	var mutex sync.Mutex
-
-	// 启动心跳线程
-	go ping(conn, &mutex)
-
-	// 循环读取消息
-	reader := bufio.NewReader(*conn)
-	for {
-		line, err := reader.ReadBytes('\n')
-		if err != nil {
-			fmt.Println("读取消息失败:", err)
-			// 尝试重连
+	var rootCmd = &cobra.Command{
+		Use:   "bemfa-client",
+		Short: "Bemfa client for remote command execution",
+		Run: func(cmd *cobra.Command, args []string) {
+			// 连接到TCP服务器
+			var conn *net.Conn
+			var err error
 			for i := 0; i < 3; i++ {
-				fmt.Println("尝试重连...")
 				conn, err = connectTCP()
-				if err == nil {
-					fmt.Println("重连成功")
-					reader = bufio.NewReader(*conn)
-					go ping(conn, &mutex) // 重启心跳线程
-					break
+				if err != nil {
+					fmt.Println("连接失败:", err)
+					time.Sleep(2 * time.Second)
+					continue
 				}
-				fmt.Println("重连失败:", err)
-				time.Sleep(2 * time.Second)
+				break
 			}
 			if err != nil {
-				fmt.Println("重连失败，退出程序")
+				fmt.Println("连接失败，退出程序")
 				return
 			}
-			continue
-		}
+			defer (*conn).Close()
 
-		// 处理接收到的数据
-		go handleReceivedData(line, &mutex)
+			// 使用互斥锁保护TCP连接
+			var mutex sync.Mutex
+
+			// 启动心跳线程
+			go ping(conn, &mutex)
+
+			// 循环读取消息
+			reader := bufio.NewReader(*conn)
+			for {
+				line, err := reader.ReadBytes('\n')
+				if err != nil {
+					fmt.Println("读取消息失败:", err)
+					// 尝试重连
+					for i := 0; i < 3; i++ {
+						fmt.Println("尝试重连...")
+						conn, err = connectTCP()
+						if err == nil {
+							fmt.Println("重连成功")
+							reader = bufio.NewReader(*conn)
+							go ping(conn, &mutex) // 重启心跳线程
+							break
+						}
+						fmt.Println("重连失败:", err)
+						time.Sleep(2 * time.Second)
+					}
+					if err != nil {
+						fmt.Println("重连失败，退出程序")
+						return
+					}
+					continue
+				}
+
+				// 处理接收到的数据
+				go handleReceivedData(line, &mutex)
+			}
+		},
+	}
+
+	rootCmd.Flags().StringVarP(&clientID, "clientid", "c", "", "巴法云私钥 (必填)")
+	rootCmd.Flags().StringVarP(&topic, "topic", "t", "", "主题值 (必填)")
+	rootCmd.Flags().StringVarP(&command, "command", "m", "", "要执行的命令 (必填)")
+
+	_ = rootCmd.MarkFlagRequired("clientid")
+	_ = rootCmd.MarkFlagRequired("topic")
+	_ = rootCmd.MarkFlagRequired("command")
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 }
