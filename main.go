@@ -25,6 +25,8 @@ var topic string
 // 执行的命令
 var command string
 
+var status string
+
 // 发送状态到巴法云
 func sendStatusToBemfa(status string) error {
 	encodedStatus := url.QueryEscape(status)
@@ -86,7 +88,8 @@ func ping(conn *net.Conn, mutex *sync.Mutex) {
 func handleReceivedData(data []byte, mutex *sync.Mutex) {
 	// 解析数据
 	dataStr := string(data)
-	if strings.Contains(dataStr, "cmd=2") && strings.Contains(dataStr, "msg=off") {
+	msgstatus := fmt.Sprintf("msg=%s", status)
+	if strings.Contains(dataStr, "cmd=2") && strings.Contains(dataStr, msgstatus) {
 		// 执行命令
 		fmt.Printf("执行命令: %s\n", command)
 		cmd := exec.Command("bash", "-c", command)
@@ -165,11 +168,12 @@ func main() {
 	rootCmd.Flags().StringVarP(&clientID, "clientid", "c", "", "巴法云私钥 (必填)")
 	rootCmd.Flags().StringVarP(&topic, "topic", "t", "", "主题值 (必填)")
 	rootCmd.Flags().StringVarP(&command, "command", "m", "", "要执行的命令 (必填)")
+	rootCmd.Flags().StringVarP(&status, "status", "s", "", "设置设备开关状态on/off(必填)")
 
 	_ = rootCmd.MarkFlagRequired("clientid")
 	_ = rootCmd.MarkFlagRequired("topic")
 	_ = rootCmd.MarkFlagRequired("command")
-
+	_ = rootCmd.MarkFlagRequired("status")
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
