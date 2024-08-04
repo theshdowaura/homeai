@@ -34,9 +34,10 @@ jobs:
         run: |
           zip -r release/homeai_v${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}.zip homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
       - name: Upload artifact
+        id: upload_artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ runner.run_id }}
+          name: release-${{ github.run_id }}
           path: ./release
           if-no-files-found: warn
           retention-days: 5 # 可选，保留天数
@@ -48,7 +49,7 @@ jobs:
       - name: Download release archive
         uses: actions/download-artifact@v4
         with:
-          name: release-${{ needs.build.outputs.artifact_name }} # 使用上一步的产物名称
+          name: release-${{ github.run_id }} # 使用上一步的产物名称
           path: ./release
       - name: Get version from tag
         run: echo "VERSION=$(echo ${GITHUB_REF#refs/tags/} | cut -d'v' -f2)" >> $GITHUB_ENV
@@ -63,11 +64,10 @@ jobs:
           draft: false
           prerelease: false
       - name: Upload Release Archive
-        uses: actions/upload-release-asset@v1
+        run: |
+          for file in ./release/*; do
+            echo "Uploading $file..."
+            gh release upload ${{ github.ref }} "$file" --clobber
+          done
         env:
           GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release/homeai_v${{ env.VERSION }}.zip
-          asset_name: homeai_v${{ env.VERSION }}.zip
-          asset_content_type: application/zip
