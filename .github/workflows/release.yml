@@ -42,6 +42,15 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [ linux, darwin, windows ]
+        goarch: [ "amd64", "386", "arm64" ]
+        exclude:
+          - goos: darwin
+            goarch: 386
+          - goos: windows
+            goarch: 386
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v3
