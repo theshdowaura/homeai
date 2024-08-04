@@ -24,7 +24,7 @@ jobs:
         with:
           go-version: '1.22'
       - name: Get version from tag
-        run: echo "VERSION=${GITHUB_REF/refs/tags/v/}" >> $GITHUB_ENV
+        run: echo "VERSION=$(echo ${GITHUB_REF#refs/tags/} | cut -d'v' -f2)" >> $GITHUB_ENV
       - name: Build
         run: |
           go mod tidy
@@ -51,7 +51,7 @@ jobs:
           name: release-${{ needs.build.outputs.artifact_name }} # 使用上一步的产物名称
           path: ./release
       - name: Get version from tag
-        run: echo "VERSION=${GITHUB_REF/refs/tags/v/}" >> $GITHUB_ENV
+        run: echo "VERSION=$(echo ${GITHUB_REF#refs/tags/} | cut -d'v' -f2)" >> $GITHUB_ENV
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
