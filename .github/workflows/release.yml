@@ -33,7 +33,9 @@ jobs:
         run: |
           mkdir -p dist
           go mod tidy
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o dist/homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
+          SET GOOS=${{ matrix.goos }} 
+          SET GOARCH=${{ matrix.goarch }} 
+          go build -o dist/homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
 
       - name: Create Release
         id: create_release
