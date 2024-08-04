@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        goos: [linux, darwin, windows]
+        goarch: ["amd64", "386", "arm64"]
+        exclude:
+          - os: macos-latest
+            goarch: 386
+          - os: windows-latest
+            goarch: 386
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22.5'
+
+      - name: Build
+        run: |
+          cd ./golang
+          go mod init main
+          go mod tidy
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o homeai_${{ matrix.goos }}_${{ matrix.goarch }}
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
+        env:
+          GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
+        with:
+          tag_name: v${{ github.run_number }}
+          release_name: Release ${{ github.run_number }}
+          draft: true
+          prerelease: false
+
+      - name: Upload Binaries
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./golang/homeai_${{ matrix.goos }}_${{ matrix.goarch }}
+          asset_name: homeai_${{ matrix.goos }}_${{ matrix.goarch }}
+          asset_content_type: application/octet-stream
