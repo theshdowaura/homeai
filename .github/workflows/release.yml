@@ -7,16 +7,15 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest # 使用 windows-latest 作为构建平台
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         goos: [linux, darwin, windows]
         goarch: ["amd64", "386", "arm64"]
         exclude:
-          - os: macos-latest
+          - goos: darwin
             goarch: 386
-          - os: windows-latest
+          - goos: windows
             goarch: 386
     steps:
       - uses: actions/checkout@v3
@@ -39,7 +38,7 @@ jobs:
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
-        if: matrix.os == 'ubuntu-latest' && matrix.goarch == 'amd64'
+        if: matrix.goos == 'windows' && matrix.goarch == 'amd64' # 使用 windows-amd64 构建发布
         env:
           GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
         with:
