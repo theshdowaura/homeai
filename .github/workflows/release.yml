@@ -29,18 +29,7 @@ jobs:
         run: |
           mkdir -p release
           go mod tidy
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
-      - name: Create release archive
-        run: |
-          zip -r release/homeai_v${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}.zip homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
-      - name: Upload artifact
-        id: upload_artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-${{ github.run_id }}
-          path: ./release
-          if-no-files-found: warn
-          retention-days: 5 # 可选，保留天数
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o release/homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
 
   release:
     needs: build
@@ -49,7 +38,7 @@ jobs:
       - name: Download release archive
         uses: actions/download-artifact@v4
         with:
-          name: release-${{ github.run_id }} # 使用上一步的产物名称
+          name: release-${{ github.run_id }}
           path: ./release
       - name: Get version from tag
         run: echo "VERSION=$(echo ${GITHUB_REF#refs/tags/} | cut -d'v' -f2)" >> $GITHUB_ENV
@@ -57,7 +46,7 @@ jobs:
         id: create_release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
           release_name: Release v${{ env.VERSION }}
@@ -70,4 +59,4 @@ jobs:
             gh release upload ${{ github.ref }} "$file" --clobber
           done
         env:
-          GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
