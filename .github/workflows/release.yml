@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest # 使用 windows-latest 作为构建平台
+    runs-on: ubuntu-latest # 使用 ubuntu-latest 作为构建平台
     strategy:
       matrix:
         goos: [linux, darwin, windows]
@@ -28,19 +28,16 @@ jobs:
       - name: Get version from tag
         run: echo "VERSION=$(echo ${GITHUB_REF#refs/tags/} | cut -d'v' -f2)" >> $GITHUB_ENV
 
-
       - name: Build
         run: |
           mkdir dist
           go mod tidy
-          SET GOOS=${{ matrix.goos }} 
-          SET GOARCH=${{ matrix.goarch }} 
-          go build -o dist/homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o dist/homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
 
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
-        if: matrix.goos == 'windows' && matrix.goarch == 'amd64' # 使用 windows-amd64 构建发布
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64' # 使用 linux-amd64 构建发布
         env:
           GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
         with:
