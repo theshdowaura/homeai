@@ -33,29 +33,26 @@ jobs:
           go mod tidy
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
 
+      - name: Create release archive
+        run: |
+          mkdir -p release
+          zip -r release/homeai_v${{ env.VERSION }}.zip homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
+
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.goos }}_${{ matrix.goarch }}
-          path: ./homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
+          name: release
+          path: ./release
 
   release:
     needs: build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        goos: [linux, darwin, windows]
-        goarch: ["amd64", "386", "arm64"]
-        exclude:
-          - goos: darwin
-            goarch: 386
-          - goos: windows
-            goarch: 386
     steps:
-      - name: Download all artifacts
+      - name: Download release archive
         uses: actions/download-artifact@v3
         with:
-          path: ./artifacts
+          name: release
+          path: ./release
 
       - name: Create Release
         id: create_release
@@ -68,12 +65,13 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Binaries
+      - name: Upload Release Archive
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/${{ matrix.goos }}_${{ matrix.goarch }}/homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
-          asset_name: homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
-          asset_content_type: application/octet-stream
+          asset_path: ./release/homeai_v${{ env.VERSION }}.zip
+          asset_name: homeai_v${{ env.VERSION }}.zip
+          asset_content_type: application/zip
+
