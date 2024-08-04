@@ -33,6 +33,19 @@ jobs:
           go mod tidy
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.goos }}_${{ matrix.goarch }}
+          path: ./homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -50,6 +63,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
+          asset_path: ./${{ matrix.goos }}_${{ matrix.goarch }}/homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
           asset_name: homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
           asset_content_type: application/octet-stream
