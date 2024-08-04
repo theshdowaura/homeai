@@ -32,7 +32,6 @@ jobs:
 
       - name: Build
         run: |
-          go mod init main
           go mod tidy
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o homeai_${{ matrix.goos }}_${{ matrix.goarch }}_${{ env.VERSION }}
 
