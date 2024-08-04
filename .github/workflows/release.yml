@@ -18,28 +18,23 @@ jobs:
           - goos: windows
             goarch: 386
     steps:
-      - uses: actions/checkout@v3
-
+      - uses: actions/checkout@v4 # Updated to v4
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v4 # Updated to v4
         with:
           go-version: '1.22'
-
       - name: Get version from tag
         run: echo "VERSION=$(echo ${GITHUB_REF#refs/tags/} | cut -d'v' -f2)" >> $GITHUB_ENV
-
       - name: Build
         run: |
           go mod tidy
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
-
       - name: Create release archive
         run: |
           mkdir -p release
           zip -r release/homeai_v${{ env.VERSION }}.zip homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
-
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4 # Updated to v4
         with:
           name: release
           path: ./release
@@ -49,11 +44,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download release archive
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4 # Updated to v4
         with:
           name: release
           path: ./release
-
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -64,7 +58,6 @@ jobs:
           release_name: Release v${{ env.VERSION }}
           draft: false
           prerelease: false
-
       - name: Upload Release Archive
         uses: actions/upload-release-asset@v1
         env:
@@ -74,4 +67,3 @@ jobs:
           asset_path: ./release/homeai_v${{ env.VERSION }}.zip
           asset_name: homeai_v${{ env.VERSION }}.zip
           asset_content_type: application/zip
-
