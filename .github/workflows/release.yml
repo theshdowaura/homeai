@@ -26,32 +26,53 @@ jobs:
           go-version: '1.22'
 
       - name: Get version from tag
-        run: echo "VERSION=$(echo ${GITHUB_REF#refs/tags/} | cut -d'v' -f2)" >> $GITHUB_ENV
+        run: echo "VERSION=$(echo ${{ github.ref_name }} | cut -d 'v' -f 2)" >> $GITHUB_ENV
 
       - name: Build
         run: |
           go mod tidy
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
+          path: homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
-        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
         env:
           GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
           release_name: Release v${{ env.VERSION }}
-          draft: true
+          draft: false
           prerelease: false
 
       - name: Upload Binaries
         uses: actions/upload-release-asset@v1
-        if: matrix.goos == 'linux' && matrix.goarch == 'amd64' # 只上传 linux-amd64 的构建产物
         env:
           GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
+        strategy:
+          matrix:
+            goos: [linux, darwin, windows]
+            goarch: ["amd64", "386", "arm64"]
+            exclude:
+              - goos: darwin
+                goarch: 386
+              - goos: windows
+                goarch: 386
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
+          asset_path: ./homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
           asset_name: homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
           asset_content_type: application/octet-stream
