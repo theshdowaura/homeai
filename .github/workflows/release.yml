@@ -62,17 +62,13 @@ jobs:
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
-        strategy:
-          matrix:
-            goos: [linux, darwin, windows]
-            goarch: ["amd64", "386", "arm64"]
-            exclude:
-              - goos: darwin
-                goarch: 386
-              - goos: windows
-                goarch: 386
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
-          asset_name: homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
-          asset_content_type: application/octet-stream
+        run: |
+          for file in ./homeai_*; do
+            echo "Uploading ${file}"
+            actions/upload-release-asset@v1 \
+              -api-base-url "${{ steps.create_release.outputs.upload_url }}" \
+              -upload_url "${{ steps.create_release.outputs.upload_url }}" \
+              -asset_path "${file}" \
+              -asset_name "${file}" \
+              -asset_content_type application/octet-stream
+          done
