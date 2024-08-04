@@ -27,11 +27,11 @@ jobs:
         run: echo "VERSION=$(echo ${GITHUB_REF#refs/tags/} | cut -d'v' -f2)" >> $GITHUB_ENV
       - name: Build
         run: |
+          mkdir -p release
           go mod tidy
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o release/homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
       - name: Create release archive
         run: |
-          mkdir -p release
           zip -r release/homeai_v${{ env.VERSION }}.zip homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
       - name: Upload artifact
         uses: actions/upload-artifact@v4
