@@ -32,7 +32,6 @@ jobs:
 
       - name: Build
         run: |
-          cd ./golang
           go mod init main
           go mod tidy
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o homeai_${{ matrix.goos }}_${{ matrix.goarch }}_${{ env.VERSION }}
@@ -55,6 +54,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./golang/homeai_${{ matrix.goos }}_${{ matrix.goarch }}_${{ env.VERSION }}
+          asset_path: homeai_${{ matrix.goos }}_${{ matrix.goarch }}_${{ env.VERSION }}
           asset_name: homeai_${{ matrix.goos }}_${{ matrix.goarch }}_${{ env.VERSION }}
           asset_content_type: application/octet-stream
