@@ -48,6 +48,8 @@ jobs:
         with:
           name: release
           path: ./release
+      - name: Get version from tag
+        run: echo "VERSION=$(echo ${GITHUB_REF#refs/tags/} | cut -d'v' -f2)" >> $GITHUB_ENV
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
