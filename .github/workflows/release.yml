@@ -36,7 +36,6 @@ jobs:
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
-        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
         env:
           GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
         with:
@@ -47,7 +46,6 @@ jobs:
 
       - name: Upload Binaries
         uses: actions/upload-release-asset@v1
-        if: matrix.goos == 'linux' && matrix.goarch == 'amd64' # 只上传 linux-amd64 的构建产物
         env:
           GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
         with:
