@@ -39,8 +39,7 @@ jobs:
           name: release-${{ runner.run_id }}
           path: ./release
           if-no-files-found: warn
-          compression-level: 6
-          overwrite: false
+          retention-days: 5 # 可选，保留天数
 
   release:
     needs: build
@@ -49,7 +48,7 @@ jobs:
       - name: Download release archive
         uses: actions/download-artifact@v4
         with:
-          name: release-${{ runner.run_id }} # 使用相同的运行 ID 下载产物
+          name: release-${{ needs.build.outputs.artifact_name }} # 使用上一步的产物名称
           path: ./release
       - name: Get version from tag
         run: echo "VERSION=${GITHUB_REF/refs/tags/v/}" >> $GITHUB_ENV
