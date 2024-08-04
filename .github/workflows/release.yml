@@ -31,7 +31,7 @@ jobs:
 
       - name: Build
         run: |
-          mkdir -p dist
+          mkdir dist
           go mod tidy
           SET GOOS=${{ matrix.goos }} 
           SET GOARCH=${{ matrix.goarch }} 
