@@ -30,6 +30,11 @@ jobs:
           mkdir -p release
           go mod tidy
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o release/homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
+      - name: Upload release archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-latest
+          path: ./release
 
   release:
     needs: build
@@ -38,7 +43,7 @@ jobs:
       - name: Download release archive
         uses: actions/download-artifact@v4
         with:
-          name: release-${{ github.run_id }}
+          name: release-latest
           path: ./release
       - name: Get version from tag
         run: echo "VERSION=$(echo ${GITHUB_REF#refs/tags/} | cut -d'v' -f2)" >> $GITHUB_ENV
