@@ -28,12 +28,13 @@ jobs:
 
       - name: Get version from tag
         run: |
-          echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+          echo "VERSION=$(echo ${GITHUB_REF#refs/tags/} | cut -d'v' -f2)" >> $GITHUB_ENV
 
       - name: Build
         run: |
+          mkdir -p dist
           go mod tidy
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o homeai_${{ matrix.goos }}_${{ matrix.goarch }}_${{ env.VERSION }}
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o dist/homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
 
       - name: Create Release
         id: create_release
@@ -43,7 +44,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          release_name: Release v${{ env.VERSION }}
           draft: true
           prerelease: false
 
@@ -53,6 +54,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.HOMEAI_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: homeai_${{ matrix.goos }}_${{ matrix.goarch }}_${{ env.VERSION }}
-          asset_name: homeai_${{ matrix.goos }}_${{ matrix.goarch }}_${{ env.VERSION }}
+          asset_path: dist/homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
+          asset_name: homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }}
           asset_content_type: application/octet-stream
