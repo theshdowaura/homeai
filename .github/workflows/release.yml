@@ -1,115 +1,26 @@
-name: Release
+name: build-go-binary
 
 on:
   release:
-    types: [published]
-  push:
-    branches:
-      - home
-    paths:
-      - "**/*.go"
-      - "go.mod"
-      - "go.sum"
-      - ".github/workflows/*.yml"
-
-permissions: write-all
+    types: [created] # 表示在创建新的 Release 时触发
 
 jobs:
-  build:
+  build-go-binary:
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        # Include amd64 on all platforms.
-        goos: [windows, linux, darwin]
-        goarch: [ "amd64", "386" ]
-        exclude:
-          # Exclude i386 on darwin.
-          - goarch: 386
-            goos: darwin
-        include:
-          # BEGIN Linux ARM 5 6 7
-          - goos: linux
-            goarch: arm
-            goarm: 7
-          - goos: linux
-            goarch: arm
-            goarm: 6
-          - goos: linux
-            goarch: arm
-            goarm: 5
-          # END Linux ARM 5 6 7
-          # BEGIN Windows ARM 7
-          - goos: windows
-            goarch: arm
-            goarm: 7
-          # END Windows ARM 7
-          # BEGIN Other architectures
-          - goos: darwin
-            goarch: arm64
-          - goos: linux
-            goarch: arm64
-          - goos: linux
-            goarch: riscv64
-          - goos: windows
-            goarch: arm64
-          - goos: android
-            goarch: arm64
-          # BEGIN MIPS
-          - goos: linux
-            goarch: mips64
-          - goos: linux
-            goarch: mips64le
-          - goos: linux
-            goarch: mipsle
-          - goos: linux
-            goarch: mips
-          # END MIPS
-          # END Other architectures
-      fail-fast: false
-
-    runs-on: ubuntu-latest
-    env:
-      GOOS: ${{ matrix.goos }}
-      GOARCH: ${{ matrix.goarch }}
-      GOARM: ${{ matrix.goarm }}
-      CGO_ENABLED: 0
-
+        goos: [linux, windows, darwin] # 需要打包的系统
+        goarch: [amd64, arm64] # 需要打包的架构
+        exclude: # 排除某些平台和架构
+          - goarch: arm64
+            goos: windows
     steps:
-      - name: Checkout codebase
-        uses: actions/checkout@v3
-
-      - name: Show workflow information
-        id: get_filename
-        run: |
-          export _NAME=$GOOS-$GOARCH$GOARM
-          echo "GOOS: $GOOS, GOARCH: $GOARCH, GOARM: $GOARM, RELEASE_NAME: $_NAME"
-          echo "::set-output name=ASSET_NAME::$_NAME"
-          echo "ASSET_NAME=$_NAME" >> $GITHUB_ENV
-      - name: Set up Go
-        uses: actions/setup-go@v3
+      - uses: actions/checkout@v3
+      - uses: wangyoucao577/go-release-action@v1.30
         with:
-          go-version: ^1.22
-
-      - name: Get project dependencies
-        run: go mod download
-
-      - name: Build
-        run: |
-          mkdir -p build_assets
-          go build -v -o build_assets/homeai -trimpath -ldflags "-s -w -buildid=" .
-      - name: Rename Windows homeai
-        if: matrix.goos == 'windows'
-        run: |
-          cd ./build_assets || exit 1
-          mv homeai homeai.exe
-      - name: Create ZIP archive
-        run: |
-          pushd build_assets || exit 1
-          zip -9vr ../homeai-$ASSET_NAME.zip .
-          popd || exit 1
-
-      - name: Upload release binary
-        if: github.event_name == 'release'
-        env:
-          GITHUB_TOKEN: ${{secrets.HOMEAI_TOKEN}}
-        run: |
-          gh release upload ${{ github.event.release.tag_name }} homeai-${{ steps.get_filename.outputs.ASSET_NAME }}.zip
+          github_token: ${{ secrets.HOMEAI_TOKEN }} # 一个默认的变量，用来实现往 Release 中添加文件
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          goversion: 1.18 # 可以指定编译使用的 Golang 版本
+          binary_name: homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }} # 可以指定二进制文件的名称
+          extra_files: README.md config.dev.json # 需要包含的额外文件
