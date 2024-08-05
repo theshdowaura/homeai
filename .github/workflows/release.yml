@@ -2,7 +2,7 @@ name: Release
 
 on:
   release:
-    types: [prereleased]
+    types: [published]
   push:
     branches:
       - home
@@ -87,7 +87,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: ^1.19
+          go-version: ^1.22
 
       - name: Get project dependencies
         run: go mod download
@@ -95,16 +95,16 @@ jobs:
       - name: Build
         run: |
           mkdir -p build_assets
-          go build -v -o build_assets/EasierConnect -trimpath -ldflags "-s -w -buildid=" .
-      - name: Rename Windows EasierConnect
+          go build -v -o build_assets/homeai -trimpath -ldflags "-s -w -buildid=" .
+      - name: Rename Windows homeai
         if: matrix.goos == 'windows'
         run: |
           cd ./build_assets || exit 1
-          mv EasierConnect EasierConnect.exe
+          mv homeai homeai.exe
       - name: Create ZIP archive
         run: |
           pushd build_assets || exit 1
-          zip -9vr ../EasierConnect-$ASSET_NAME.zip .
+          zip -9vr ../homeai-$ASSET_NAME.zip .
           popd || exit 1
 
       - name: Upload release binary
@@ -112,4 +112,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{secrets.HOMEAI_TOKEN}}
         run: |
-          gh release upload ${{ github.event.release.tag_name }} EasierConnect-${{ steps.get_filename.outputs.ASSET_NAME }}.zip
+          gh release upload ${{ github.event.release.tag_name }} homeai-${{ steps.get_filename.outputs.ASSET_NAME }}.zip
