@@ -5,7 +5,7 @@ on:
     types: [prereleased]
   push:
     branches:
-      - main
+      - home
     paths:
       - "**/*.go"
       - "go.mod"
