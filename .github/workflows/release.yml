@@ -15,6 +15,8 @@ jobs:
           - goarch: arm64
             goos: windows
     steps:
+      - name: Get tag version
+        run: echo "VERSION=$(echo ${GITHUB_REF#refs/tags/} | cut -d'v' -f2)" >> $GITHUB_ENV
       - uses: actions/checkout@v3
       - uses: wangyoucao577/go-release-action@v1.30
         with:
@@ -23,4 +25,3 @@ jobs:
           goarch: ${{ matrix.goarch }}
           goversion: 1.22.5 # 可以指定编译使用的 Golang 版本
           binary_name: homeai_${{ matrix.goos }}_${{ matrix.goarch }}_v${{ env.VERSION }} # 可以指定二进制文件的名称
-          extra_files: README.md config.dev.json # 需要包含的额外文件
