@@ -1,18 +1,12 @@
-package main
+package mqtt
 
 import (
+	"bytes"
 	"fmt"
 	"log"
+	"os/exec"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/spf13/cobra"
-)
-
-const (
-	defaultHost     = "bemfa.com"
-	defaultPort     = 9501
-	defaultClientID = "4d9ec352e0376f2110a0c601a2857225"
-	defaultTopic    = "led00202"
 )
 
 var (
@@ -20,9 +14,16 @@ var (
 	port     int
 	clientID string
 	topic    string
-	userName string
-	passwd   string
 )
+
+func InitMQTT(h string, p int, cid string, t string) {
+	host = h
+	port = p
+	clientID = cid
+	topic = t
+
+	runMQTT()
+}
 
 func onConnect(client mqtt.Client) {
 	fmt.Println("Connected with result code 0")
@@ -37,6 +38,7 @@ func onConnect(client mqtt.Client) {
 
 func onMessage(client mqtt.Client, msg mqtt.Message) {
 	fmt.Printf("主题: %s 消息: %s\n", msg.Topic(), string(msg.Payload()))
+	executeCommand(string(msg.Payload()))
 }
 
 func onConnectionLost(client mqtt.Client, err error) {
@@ -47,8 +49,6 @@ func onConnectionLost(client mqtt.Client, err error) {
 
 func runMQTT() {
 	opts := mqtt.NewClientOptions().AddBroker(fmt.Sprintf("tcp://%s:%d", host, port)).SetClientID(clientID)
-	//opts.SetUsername(userName)
-	//opts.SetPassword(passwd)
 	opts.OnConnect = onConnect
 	opts.OnConnectionLost = onConnectionLost
 
@@ -66,27 +66,15 @@ func runMQTT() {
 	}
 }
 
-var rootCmd = &cobra.Command{
-	Use:   "mqtt-client",
-	Short: "MQTT 客户端",
-	Run: func(cmd *cobra.Command, args []string) {
-		runMQTT()
-	},
-}
-
-func init() {
-	rootCmd.Flags().StringVarP(&host, "host", "H", defaultHost, "MQTT 服务器地址")
-	rootCmd.Flags().IntVarP(&port, "port", "P", defaultPort, "MQTT 服务器端口")
-	rootCmd.Flags().StringVarP(&clientID, "client-id", "i", defaultClientID, "客户端 ID")
-	rootCmd.Flags().StringVarP(&topic, "topic", "t", defaultTopic, "订阅主题")
-	//rootCmd.Flags().StringVarP(&userName, "username", "u", "", "用户名")
-	//rootCmd.Flags().StringVarP(&passwd, "password", "p", "", "密码")
-	//rootCmd.MarkFlagRequired("username")
-	//rootCmd.MarkFlagRequired("password")
-}
-
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		log.Fatal(err)
+func executeCommand(command string) {
+	fmt.Printf("执行命令: %s\n", command)
+	cmd := exec.Command("bash", "-c", command)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		fmt.Println("命令执行失败:", err)
+	} else {
+		fmt.Println("命令执行成功:", out.String())
 	}
 }
