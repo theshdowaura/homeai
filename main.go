@@ -22,27 +22,40 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "bemfa-client",
 	Short: "Bemfa client for MQTT and TCP",
+}
+
+var mqttCmd = &cobra.Command{
+	Use:   "mqtt",
+	Short: "Start MQTT client",
 	Run: func(cmd *cobra.Command, args []string) {
-		go mqtt.InitMQTT(mqttHost, mqttPort, mqttClientID, mqttTopic)
+		mqtt.InitMQTT(mqttHost, mqttPort, mqttClientID, mqttTopic)
+	},
+}
+
+var tcpCmd = &cobra.Command{
+	Use:   "tcp",
+	Short: "Start TCP client",
+	Run: func(cmd *cobra.Command, args []string) {
 		tcp.InitTCP(tcpClientID, tcpTopic, command, status)
 	},
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&mqttHost, "mqtt-host", "H", "bemfa.com", "MQTT 服务器地址")
-	rootCmd.Flags().IntVarP(&mqttPort, "mqtt-port", "P", 9501, "MQTT 服务器端口")
-	rootCmd.Flags().StringVarP(&mqttClientID, "mqtt-clientid", "i", "", "MQTT 客户端 ID")
-	rootCmd.Flags().StringVarP(&mqttTopic, "mqtt-topic", "t", "", "MQTT 订阅主题")
+	// MQTT flags
+	mqttCmd.Flags().StringVarP(&mqttHost, "mqtt-host", "H", "bemfa.com", "MQTT 服务器地址")
+	mqttCmd.Flags().IntVarP(&mqttPort, "mqtt-port", "P", 9501, "MQTT 服务器端口")
+	mqttCmd.Flags().StringVarP(&mqttClientID, "mqtt-clientid", "i", "", "MQTT 客户端 ID")
+	mqttCmd.Flags().StringVarP(&mqttTopic, "mqtt-topic", "t", "", "MQTT 订阅主题")
 
-	rootCmd.Flags().StringVarP(&tcpClientID, "tcp-clientid", "c", "", "TCP 巴法云私钥 ")
-	rootCmd.Flags().StringVarP(&tcpTopic, "tcp-topic", "T", "", "TCP 主题值 ")
-	rootCmd.Flags().StringVarP(&command, "command", "m", "", "<基于tcp创客云>要执行的命令")
-	rootCmd.Flags().StringVarP(&status, "status", "s", "", "设置设备开关状态 on/off")
+	// TCP flags
+	tcpCmd.Flags().StringVarP(&tcpClientID, "tcp-clientid", "c", "", "TCP 巴法云私钥")
+	tcpCmd.Flags().StringVarP(&tcpTopic, "tcp-topic", "T", "", "TCP 主题值")
+	tcpCmd.Flags().StringVarP(&command, "command", "m", "", "<基于tcp创客云>要执行的命令")
+	tcpCmd.Flags().StringVarP(&status, "status", "s", "", "设置设备开关状态 on/off")
 
-	//_ = rootCmd.MarkFlagRequired("tcp-clientid")
-	//_ = rootCmd.MarkFlagRequired("tcp-topic")
-	//_ = rootCmd.MarkFlagRequired("command")
-	//_ = rootCmd.MarkFlagRequired("status")
+	// Add subcommands to root command
+	rootCmd.AddCommand(mqttCmd)
+	rootCmd.AddCommand(tcpCmd)
 }
 
 func main() {
