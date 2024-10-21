@@ -14,8 +14,8 @@ import (
 	"time"
 )
 
-// TCPClient 定义了 TCP 客户端结构体
-type TCPClient struct {
+// Client TCPClient 定义了 TCP 客户端结构体
+type Client struct {
 	clientID string
 	topic    string
 	command  string
@@ -26,7 +26,7 @@ type TCPClient struct {
 
 // InitTCP 初始化 TCP 客户端并开始运行
 func InitTCP(cid string, t string, cmd string, st string) {
-	client := &TCPClient{
+	client := &Client{
 		clientID: cid,
 		topic:    t,
 		command:  cmd,
@@ -36,7 +36,7 @@ func InitTCP(cid string, t string, cmd string, st string) {
 }
 
 // connectTCP 建立 TCP 连接并订阅主题
-func (c *TCPClient) connectTCP() error {
+func (c *Client) connectTCP() error {
 	conn, err := net.Dial("tcp", "bemfa.com:8344")
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func (c *TCPClient) connectTCP() error {
 }
 
 // ping 定时发送心跳包
-func (c *TCPClient) ping() {
+func (c *Client) ping() {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
@@ -71,7 +71,7 @@ func (c *TCPClient) ping() {
 }
 
 // handleReceivedData 处理接收到的数据
-func (c *TCPClient) handleReceivedData(data []byte) {
+func (c *Client) handleReceivedData(data []byte) {
 	dataStr := string(data)
 	msgstatus := fmt.Sprintf("msg=%s", c.status)
 	if strings.Contains(dataStr, "cmd=2") && strings.Contains(dataStr, msgstatus) {
@@ -89,7 +89,7 @@ func (c *TCPClient) handleReceivedData(data []byte) {
 }
 
 // readLoop 持续读取服务器发送的数据
-func (c *TCPClient) readLoop() {
+func (c *Client) readLoop() {
 	reader := bufio.NewReader(c.conn)
 	for {
 		line, err := reader.ReadBytes('\n')
@@ -103,10 +103,13 @@ func (c *TCPClient) readLoop() {
 }
 
 // reconnect 尝试重新连接服务器
-func (c *TCPClient) reconnect() {
+func (c *Client) reconnect() {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	c.conn.Close()
+	err := c.conn.Close()
+	if err != nil {
+		return
+	}
 
 	for i := 0; i < 3; i++ {
 		log.Println("尝试重连...")
@@ -124,20 +127,25 @@ func (c *TCPClient) reconnect() {
 }
 
 // Run 启动 TCP 客户端
-func (c *TCPClient) Run() {
+func (c *Client) Run() {
 	err := c.connectTCP()
 	if err != nil {
 		log.Println("连接失败，退出程序")
 		return
 	}
-	defer c.conn.Close()
+	defer func(conn net.Conn) {
+		err := conn.Close()
+		if err != nil {
+
+		}
+	}(c.conn)
 
 	go c.ping()
 	c.readLoop()
 }
 
 // sendStatusToBemfa 发送状态到 Bemfa
-func (c *TCPClient) sendStatusToBemfa(status string) error {
+func (c *Client) sendStatusToBemfa(status string) error {
 	encodedStatus := url.QueryEscape(status)
 	apiURL := fmt.Sprintf("https://api.bemfa.com/api/device/v1/data/3/push/get/?uid=%s&topic=%s&msg=%s", c.clientID, c.topic, encodedStatus)
 	_, err := http.Get(apiURL)

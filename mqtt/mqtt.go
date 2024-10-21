@@ -78,14 +78,14 @@ func (m *MQTTClient) onConnect(client mqtt.Client) {
 }
 
 // onMessage 接收到消息的回调
-func (m *MQTTClient) onMessage(client mqtt.Client, msg mqtt.Message) {
+func (m *MQTTClient) onMessage(_ mqtt.Client, msg mqtt.Message) {
 	payload := string(msg.Payload())
 	log.Printf("收到消息 - 主题: %s, 内容: %s\n", msg.Topic(), payload)
 	m.executeCommand(payload)
 }
 
 // onConnectionLost 连接丢失的回调
-func (m *MQTTClient) onConnectionLost(client mqtt.Client, err error) {
+func (m *MQTTClient) onConnectionLost(_ mqtt.Client, err error) {
 	log.Printf("连接丢失: %v\n", err)
 }
 
@@ -130,7 +130,12 @@ func (m *MQTTClient) executeCommand(command string) {
 		log.Println("无法打开日志文件:", fileErr)
 		return
 	}
-	defer logFile.Close()
+	defer func(logFile *os.File) {
+		err := logFile.Close()
+		if err != nil {
+
+		}
+	}(logFile)
 
 	_, writeErr := logFile.WriteString(logEntry)
 	if writeErr != nil {
