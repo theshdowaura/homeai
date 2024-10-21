@@ -1,10 +1,11 @@
 package main
 
 import (
+	"log"
+
 	"github.com/spf13/cobra"
 	"homeai/mqtt"
 	"homeai/tcp"
-	"log"
 )
 
 var (
@@ -28,7 +29,11 @@ var mqttCmd = &cobra.Command{
 	Use:   "mqtt",
 	Short: "Start MQTT client",
 	Run: func(cmd *cobra.Command, args []string) {
-		mqtt.InitMQTT(mqttHost, mqttPort, mqttClientID, mqttTopic)
+		mqttClient := mqtt.InitMQTT(mqttHost, mqttPort, mqttClientID, mqttTopic)
+		if mqttClient == nil {
+			log.Fatal("Failed to initialize MQTT client")
+		}
+		mqttClient.Run()
 	},
 }
 
@@ -37,6 +42,10 @@ var tcpCmd = &cobra.Command{
 	Short: "Start TCP client",
 	Run: func(cmd *cobra.Command, args []string) {
 		tcp.InitTCP(tcpClientID, tcpTopic, command, status)
+		//if tcpClient == nil {
+		//	log.Fatal("Failed to initialize TCP client")
+		//}
+		//tcpClient.Run()
 	},
 }
 
@@ -50,7 +59,7 @@ func init() {
 	// TCP flags
 	tcpCmd.Flags().StringVarP(&tcpClientID, "tcp-clientid", "c", "", "TCP 巴法云私钥")
 	tcpCmd.Flags().StringVarP(&tcpTopic, "tcp-topic", "T", "", "TCP 主题值")
-	tcpCmd.Flags().StringVarP(&command, "command", "m", "", "<基于tcp创客云>要执行的命令")
+	tcpCmd.Flags().StringVarP(&command, "command", "m", "", "<基于 TCP 创客云>要执行的命令")
 	tcpCmd.Flags().StringVarP(&status, "status", "s", "", "设置设备开关状态 on/off")
 
 	// Add subcommands to root command
