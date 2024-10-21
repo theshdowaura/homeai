@@ -4,77 +4,141 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
+	"sync"
+	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
-var (
+// MQTTClient 封装了 MQTT 客户端的配置和状态
+type MQTTClient struct {
 	host     string
 	port     int
 	clientID string
 	topic    string
-)
-
-func InitMQTT(h string, p int, cid string, t string) {
-	host = h
-	port = p
-	clientID = cid
-	topic = t
-
-	runMQTT()
+	client   mqtt.Client
 }
 
-func onConnect(client mqtt.Client) {
-	fmt.Println("Connected with result code 0")
-	token := client.Subscribe(topic, 0, onMessage)
-	token.Wait()
-	if token.Error() != nil {
-		fmt.Println("Subscription error:", token.Error())
-	} else {
-		fmt.Println("Subscribed to topic:", topic)
+var logFileMutex sync.Mutex
+
+// InitMQTT 创建并初始化一个 MQTTClient 实例
+func InitMQTT(h string, p int, cid string, t string) *MQTTClient {
+	client := &MQTTClient{
+		host:     h,
+		port:     p,
+		clientID: cid,
+		topic:    t,
 	}
+	return client
 }
 
-func onMessage(client mqtt.Client, msg mqtt.Message) {
-	fmt.Printf("主题: %s 消息: %s\n", msg.Topic(), string(msg.Payload()))
-	executeCommand(string(msg.Payload()))
-}
-
-func onConnectionLost(client mqtt.Client, err error) {
-	if err != nil {
-		fmt.Printf("Connection lost: %v\n", err)
+// validateConfig 验证配置参数
+func (m *MQTTClient) validateConfig() error {
+	if m.host == "" || m.port == 0 || m.clientID == "" || m.topic == "" {
+		return fmt.Errorf("配置参数不完整")
 	}
+	return nil
 }
 
-func runMQTT() {
-	opts := mqtt.NewClientOptions().AddBroker(fmt.Sprintf("tcp://%s:%d", host, port)).SetClientID(clientID)
-	opts.OnConnect = onConnect
-	opts.OnConnectionLost = onConnectionLost
+// run 启动 MQTT 客户端
+func (m *MQTTClient) Run() {
+	if err := m.validateConfig(); err != nil {
+		log.Fatal(err)
+	}
 
-	client := mqtt.NewClient(opts)
-	token := client.Connect()
-	token.Wait()
-	if token.Error() != nil {
+	opts := mqtt.NewClientOptions().
+		AddBroker(fmt.Sprintf("tcp://%s:%d", m.host, m.port)).
+		SetClientID(m.clientID).
+		SetAutoReconnect(true).
+		SetConnectionLostHandler(m.onConnectionLost).
+		SetOnConnectHandler(m.onConnect)
+
+	m.client = mqtt.NewClient(opts)
+	if token := m.client.Connect(); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
 	}
-	defer client.Disconnect(250)
+	defer m.client.Disconnect(250)
 
-	// 使用 Loop() 方法替代 LoopForever()
-	for {
-		client.Subscribe(topic, 0, onMessage)
+	// 阻塞主线程
+	select {}
+}
+
+// onConnect 连接成功的回调
+func (m *MQTTClient) onConnect(client mqtt.Client) {
+	log.Println("连接成功")
+	token := client.Subscribe(m.topic, 0, m.onMessage)
+	token.Wait()
+	if token.Error() != nil {
+		log.Println("订阅失败:", token.Error())
+	} else {
+		log.Println("已订阅主题:", m.topic)
 	}
 }
 
-func executeCommand(command string) {
-	fmt.Printf("执行命令: %s\n", command)
-	cmd := exec.Command("bash", "-c", command)
+// onMessage 接收到消息的回调
+func (m *MQTTClient) onMessage(client mqtt.Client, msg mqtt.Message) {
+	payload := string(msg.Payload())
+	log.Printf("收到消息 - 主题: %s, 内容: %s\n", msg.Topic(), payload)
+	m.executeCommand(payload)
+}
+
+// onConnectionLost 连接丢失的回调
+func (m *MQTTClient) onConnectionLost(client mqtt.Client, err error) {
+	log.Printf("连接丢失: %v\n", err)
+}
+
+// executeCommand 执行命令
+func (m *MQTTClient) executeCommand(command string) {
+	allowedCommands := map[string]string{
+		"start": "systemctl start myservice",
+		"stop":  "systemctl stop myservice",
+		"ping":  "ping.exe www.baidu.com",
+		"ip":    "ipconfig",
+		// 添加更多命令映射
+	}
+
+	cmdStr, ok := allowedCommands[command]
+	if !ok {
+		log.Println("收到非法命令:", command)
+		return
+	}
+
+	log.Printf("执行命令: %s\n", cmdStr)
+	cmd := exec.Command(cmdStr)
 	var out bytes.Buffer
 	cmd.Stdout = &out
+	cmd.Stderr = &out
 	err := cmd.Run()
+
+	// 准备日志内容
+	logEntry := time.Now().Format("2006-01-02 15:04:05") + "\n"
+	logEntry += "命令: " + cmdStr + "\n"
 	if err != nil {
-		fmt.Println("命令执行失败:", err)
+		logEntry += "错误: " + err.Error() + "\n"
+	}
+	logEntry += "输出:\n" + out.String() + "\n"
+	logEntry += "----------------------------------------\n"
+
+	// 写入日志文件
+	logFileMutex.Lock()
+	defer logFileMutex.Unlock()
+
+	logFile, fileErr := os.OpenFile("command.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if fileErr != nil {
+		log.Println("无法打开日志文件:", fileErr)
+		return
+	}
+	defer logFile.Close()
+
+	_, writeErr := logFile.WriteString(logEntry)
+	if writeErr != nil {
+		log.Println("无法写入日志文件:", writeErr)
+	}
+	if err != nil {
+		log.Println("命令执行失败:", err, out.String())
 	} else {
-		fmt.Println("命令执行成功:", out.String())
+		log.Println("命令执行成功:", out.String())
 	}
 }
