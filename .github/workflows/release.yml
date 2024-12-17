@@ -8,7 +8,6 @@ on:
 permissions:
   contents: write
   actions: write
-  # 根据需要添加其他权限
 
 jobs:
   build:
@@ -19,42 +18,14 @@ jobs:
           - goos: windows
             goarch: amd64
             goarm: ''
-          - goos: windows
-            goarch: arm
-            goarm: 7
           - goos: linux
             goarch: amd64
             goarm: ''
-          - goos: linux
-            goarch: arm
-            goarm: 7
           - goos: darwin
             goarch: arm64
             goarm: ''
-          - goos: linux
-            goarch: arm64
-            goarm: ''
-          - goos: linux
-            goarch: riscv64
-            goarm: ''
-          - goos: windows
-            goarch: arm64
-            goarm: ''
-          - goos: android
-            goarch: arm64
-            goarm: ''
-          - goos: linux
-            goarch: mips64
-            goarm: ''
-          - goos: linux
-            goarch: mips64le
-            goarm: ''
-          - goos: linux
-            goarch: mipsle
-            goarm: ''
-          - goos: linux
-            goarch: mips
-            goarm: ''
+          - linux_configs: mips
+          # 其他架构同样可以定义
       fail-fast: false
 
     env:
@@ -96,31 +67,12 @@ jobs:
           fi
           mv "$ZIP_NAME" ..
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: >-
-            EasierConnect-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm != '' && format('-%s', matrix.goarm) || '' }}
-          path: >-
-            EasierConnect-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm != '' && format('-%s', matrix.goarm) || '' }}.zip
-
-  publish:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v3
-        with:
-          path: build_assets
-
-      - name: Verify downloaded artifacts
-        run: |
-          echo "List of downloaded artifacts:"
-          ls -lhR build_assets
-
-      - name: Create GitHub Release with gh
+      - name: Publish Release for each build
         run: |
           TAG_NAME=${{ github.ref_name }}
-          gh release create "$TAG_NAME" build_assets/**/*.zip --title "$TAG_NAME" --notes "Release $TAG_NAME"
+          gh release create "$TAG_NAME" build_assets/*.zip \
+            --title "$TAG_NAME" \
+            --notes "Release $TAG_NAME" || echo "Release already exists. Adding files."
+          gh release upload "$TAG_NAME" build_assets/*.zip --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
