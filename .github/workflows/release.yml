@@ -99,8 +99,11 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
-          name: EasierConnect-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm != '' && '-' + matrix.goarm || '' }}
-          path: EasierConnect-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm != '' && '-' + matrix.goarm || '' }}.zip
+          name: >-
+            EasierConnect-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm != '' && format('-%s', matrix.goarm) || '' }}
+          path: >-
+            EasierConnect-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm != '' && format('-%s', matrix.goarm) || '' }}.zip
+  
 
   release:
     needs: build
