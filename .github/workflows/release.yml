@@ -3,39 +3,18 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'  # 仅在推送符合 v*.*.* 格式的标签时触发
+      - 'v*.*.*'
 
-permissions: write-all
+permissions:
+  contents: write
 
 jobs:
-  create_release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-    steps:
-      - name: Checkout codebase
-        uses: actions/checkout@v3
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # 创建 release 需要 token
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          draft: false # 设置为 false 以立即发布 release
-          prerelease: false # 设置为 false 以发布正式版本
-
-  build:
-    name: Build and Upload Assets
-    needs: create_release
+  build_and_release:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         goos: [windows, linux, darwin, android]
-        goarch: [ "amd64", "386", "arm", "arm64", "riscv64", "mips64", "mips64le", "mipsle", "mips" ]
+        goarch: ["amd64", "386", "arm", "arm64", "riscv64", "mips64", "mips64le", "mipsle", "mips"]
         include:
           - goos: linux
             goarch: arm
@@ -79,43 +58,48 @@ jobs:
       - name: Checkout codebase
         uses: actions/checkout@v3
 
-      - name: Show workflow information
-        id: get_filename
-        run: |
-          export _NAME=$GOOS-$GOARCH${GOARM:-}
-          echo "GOOS: $GOOS, GOARCH: $GOARCH, GOARM: ${GOARM:-N/A}, RELEASE_NAME: $_NAME"
-          echo "::set-output name=ASSET_NAME::$_NAME"
-          echo "ASSET_NAME=$_NAME" >> $GITHUB_ENV
-
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: '^1.22'
+          go-version: "^1.22"
 
-      - name: Get project dependencies
+      - name: Show build info
+        id: get_filename
+        run: |
+          export _NAME=$GOOS-$GOARCH${GOARM:-}
+          echo "GOOS: $GOOS, GOARCH: $GOARCH, GOARM: ${GOARM:-N/A}, ASSET_NAME: $_NAME"
+          echo "ASSET_NAME=$_NAME" >> $GITHUB_ENV
+
+      - name: Get dependencies
         run: go mod download
 
-      - name: Build
+      - name: Build binary
         run: |
           mkdir -p build_assets
           go build -v -o build_assets/EasierConnect -trimpath -ldflags "-s -w -buildid=" .
 
-      - name: Rename Windows EasierConnect
+      - name: Rename Windows Binary
         if: matrix.goos == 'windows'
         run: |
-          cd ./build_assets || exit 1
+          cd build_assets
           mv EasierConnect EasierConnect.exe
 
       - name: Create ZIP archive
         run: |
-          pushd build_assets || exit 1
-          zip -9vr ../EasierConnect-$ASSET_NAME.zip * # 关键：使用 * 包含所有文件
-          popd || exit 1
+          pushd build_assets
+          zip -9vr ../EasierConnect-$ASSET_NAME.zip *
+          popd
 
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
+      # 使用softprops/action-gh-release直接创建或更新Release并上传产物
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          upload_url: ${{ needs.create_release.outputs.upload_url }}
-          asset_path: ./EasierConnect-${{ env.ASSET_NAME }}.zip
-          asset_name: EasierConnect-${{ env.ASSET_NAME }}.zip
-          asset_content_type: application/zip
+          tag_name: ${{ github.ref_name }}
+          name: "Release ${{ github.ref_name }}"
+          body: "Automated release of ${{ github.ref_name }}"
+          draft: false
+          prerelease: false
+          files: "./EasierConnect-${{ env.ASSET_NAME }}.zip"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
