@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # 包含所有平台的 amd64 架构
+        # 包含所有平台的架构
         goos: [windows, linux, darwin, android]
         goarch: [ "amd64", "386", "arm", "arm64", "riscv64", "mips64", "mips64le", "mipsle", "mips" ]
         include:
@@ -128,3 +128,4 @@ jobs:
           asset_path: ./EasierConnect-${{ env.ASSET_NAME }}.zip
           asset_name: EasierConnect-${{ env.ASSET_NAME }}.zip
           asset_content_type: application/zip
+          token: ${{ secrets.GITHUB_TOKEN }}  # 明确传递令牌
