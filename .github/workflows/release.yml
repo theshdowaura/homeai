@@ -3,76 +3,109 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'  # 仅在推送符合 v*.*.* 格式的新标签时触发
+      - 'v*.*.*'  # 仅在推送符合 v*.*.* 格式的标签时触发
 
-permissions:
-  contents: write
-  actions: write
+permissions: write-all
 
 jobs:
   build:
-    runs-on: ubuntu-latest
     strategy:
       matrix:
+        # 包含所有平台的 amd64 架构
+        goos: [windows, linux, darwin]
+        goarch: [ "amd64", "386" ]
+        exclude:
+          # 排除 darwin 上的 386 架构
+          - goarch: 386
+            goos: darwin
         include:
-          - goos: windows
-            goarch: amd64
-            goarm: ''
+          # BEGIN Linux ARM 5 6 7
           - goos: linux
-            goarch: amd64
-            goarm: ''
+            goarch: arm
+            goarm: 7
+          - goos: linux
+            goarch: arm
+            goarm: 6
+          - goos: linux
+            goarch: arm
+            goarm: 5
+          # END Linux ARM 5 6 7
+          # BEGIN Windows ARM 7
+          - goos: windows
+            goarch: arm
+            goarm: 7
+          # END Windows ARM 7
+          # BEGIN 其他架构
           - goos: darwin
             goarch: arm64
-            goarm: ''
-          - linux_configs: mips
-          # 其他架构同样可以定义
+          - goos: linux
+            goarch: arm64
+          - goos: linux
+            goarch: riscv64
+          - goos: windows
+            goarch: arm64
+          - goos: android
+            goarch: arm64
+          # BEGIN MIPS
+          - goos: linux
+            goarch: mips64
+          - goos: linux
+            goarch: mips64le
+          - goos: linux
+            goarch: mipsle
+          - goos: linux
+            goarch: mips
+          # END MIPS
+          # END 其他架构
       fail-fast: false
 
+    runs-on: ubuntu-latest
     env:
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
+      GOARM: ${{ matrix.goarm }}
       CGO_ENABLED: 0
 
     steps:
-      - name: Checkout code
+      - name: Checkout codebase
         uses: actions/checkout@v3
+
+      - name: Show workflow information
+        id: get_filename
+        run: |
+          export _NAME=$GOOS-$GOARCH${GOARM:-}
+          echo "GOOS: $GOOS, GOARCH: $GOARCH, GOARM: ${GOARM:-N/A}, RELEASE_NAME: $_NAME"
+          echo "::set-output name=ASSET_NAME::$_NAME"
+          echo "ASSET_NAME=$_NAME" >> $GITHUB_ENV
 
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: '1.22'
+          go-version: '^1.22'
 
-      - name: Get dependencies
+      - name: Get project dependencies
         run: go mod download
 
       - name: Build
         run: |
           mkdir -p build_assets
-          OUTPUT="build_assets/EasierConnect"
-          if [ "${{ matrix.goos }}" == "windows" ]; then
-            OUTPUT="${OUTPUT}.exe"
-          fi
-          go build -v -o "$OUTPUT" -trimpath -ldflags "-s -w -buildid=" .
+          go build -v -o build_assets/EasierConnect -trimpath -ldflags "-s -w -buildid=" .
 
-      - name: Create ZIP
+      - name: Rename Windows EasierConnect
+        if: matrix.goos == 'windows'
         run: |
-          cd build_assets
-          ZIP_NAME="EasierConnect-${{ matrix.goos }}-${{ matrix.goarch }}"
-          if [ "${{ matrix.goarm }}" != "" ]; then
-            ZIP_NAME="${ZIP_NAME}-${{ matrix.goarm }}"
-          fi
-          ZIP_NAME="${ZIP_NAME}.zip"
-          if [ "${{ matrix.goos }}" == "windows" ]; then
-            zip -j "$ZIP_NAME" "EasierConnect.exe"
-          else
-            zip -j "$ZIP_NAME" "EasierConnect"
-          fi
-          mv "$ZIP_NAME" ..
+          cd ./build_assets || exit 1
+          mv EasierConnect EasierConnect.exe
 
-      - name: Publish Release for each build
+      - name: Create ZIP archive
         run: |
-          TAG_NAME=${{ github.ref_name }}
-          gh release create "$TAG_NAME" build_assets/*.zip \
-            --title "$TAG_NAME" \
-            --notes "Release $TAG_NAME" || echo "Release already exists. Adding files."
-          gh release upload "$TAG_NAME" build_assets/*.zip --clobber
+          pushd build_assets || exit 1
+          zip -9vr ../EasierConnect-$ASSET_NAME.zip .
+          popd || exit 1
+
+      - name: Upload release binary
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${GITHUB_REF#refs/tags/}" "EasierConnect-$ASSET_NAME.zip"
