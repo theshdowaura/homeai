@@ -21,12 +21,12 @@ jobs:
         id: create_release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # 创建 release 需要 token
         with:
           tag_name: ${{ github.ref_name }}
           release_name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
+          draft: false # 设置为 false 以立即发布 release
+          prerelease: false # 设置为 false 以发布正式版本
 
   build:
     name: Build and Upload Assets
@@ -34,11 +34,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # 包含所有平台的架构
         goos: [windows, linux, darwin, android]
         goarch: [ "amd64", "386", "arm", "arm64", "riscv64", "mips64", "mips64le", "mipsle", "mips" ]
         include:
-          # BEGIN Linux ARM 5 6 7
           - goos: linux
             goarch: arm
             goarm: 7
@@ -48,13 +46,9 @@ jobs:
           - goos: linux
             goarch: arm
             goarm: 5
-          # END Linux ARM 5 6 7
-          # BEGIN Windows ARM 7
           - goos: windows
             goarch: arm
             goarm: 7
-          # END Windows ARM 7
-          # BEGIN 其他架构
           - goos: darwin
             goarch: arm64
           - goos: linux
@@ -65,7 +59,6 @@ jobs:
             goarch: arm64
           - goos: android
             goarch: arm64
-          # BEGIN MIPS
           - goos: linux
             goarch: mips64
           - goos: linux
@@ -74,8 +67,6 @@ jobs:
             goarch: mipsle
           - goos: linux
             goarch: mips
-          # END MIPS
-          # END 其他架构
       fail-fast: false
 
     env:
@@ -118,7 +109,7 @@ jobs:
       - name: Create ZIP archive
         run: |
           pushd build_assets || exit 1
-          zip -9vr ../EasierConnect-$ASSET_NAME.zip .
+          zip -9vr ../EasierConnect-$ASSET_NAME.zip * # 关键：使用 * 包含所有文件
           popd || exit 1
 
       - name: Upload Release Asset
@@ -128,4 +119,3 @@ jobs:
           asset_path: ./EasierConnect-${{ env.ASSET_NAME }}.zip
           asset_name: EasierConnect-${{ env.ASSET_NAME }}.zip
           asset_content_type: application/zip
-          token: ${{ secrets.GITHUB_TOKEN }}  # 明确传递令牌
