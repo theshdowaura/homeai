@@ -112,14 +112,19 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v3
         with:
-          name: '*'
           path: build_assets
+
+      - name: Verify downloaded artifacts
+        run: |
+          echo "List of downloaded artifacts:"
+          ls -lhR build_assets
 
       - name: Create Release and Upload Assets
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
-          files: build_assets/*.zip
+          files: build_assets/**/*.zip
           draft: false
           prerelease: false
+
