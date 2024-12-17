@@ -5,103 +5,118 @@ on:
     tags:
       - 'v*.*.*'  # 仅在推送符合 v*.*.* 格式的新标签时触发
 
-permissions: write-all
+permissions:
+  contents: write
+  actions: write
+  # 根据需要添加其他权限
 
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [windows, linux, darwin]
-        goarch: ["amd64", "386"]
-        exclude:
-          - goarch: 386
-            goos: darwin
         include:
-          - goos: linux
+          - goos: windows
+            goarch: amd64
+            goarm: ''
+          - goos: windows
             goarch: arm
             goarm: 7
           - goos: linux
-            goarch: arm
-            goarm: 6
+            goarch: amd64
+            goarm: ''
           - goos: linux
-            goarch: arm
-            goarm: 5
-          - goos: windows
             goarch: arm
             goarm: 7
           - goos: darwin
             goarch: arm64
+            goarm: ''
           - goos: linux
             goarch: arm64
+            goarm: ''
           - goos: linux
             goarch: riscv64
+            goarm: ''
           - goos: windows
             goarch: arm64
+            goarm: ''
           - goos: android
             goarch: arm64
+            goarm: ''
           - goos: linux
             goarch: mips64
+            goarm: ''
           - goos: linux
             goarch: mips64le
+            goarm: ''
           - goos: linux
             goarch: mipsle
+            goarm: ''
           - goos: linux
             goarch: mips
+            goarm: ''
       fail-fast: false
 
     env:
-      GOOS: ${{ matrix.goos }}
-      GOARCH: ${{ matrix.goarch }}
-      GOARM: ${{ matrix.goarm }}
       CGO_ENABLED: 0
 
     steps:
-      - name: Checkout codebase
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: ^1.19
+          go-version: '1.19'
 
-      - name: Get project dependencies
+      - name: Get dependencies
         run: go mod download
 
       - name: Build
         run: |
           mkdir -p build_assets
-          go build -v -o build_assets/EasierConnect -trimpath -ldflags "-s -w -buildid=" .
+          OUTPUT="build_assets/EasierConnect"
+          if [ "${{ matrix.goos }}" == "windows" ]; then
+            OUTPUT="${OUTPUT}.exe"
+          fi
+          go build -v -o "$OUTPUT" -trimpath -ldflags "-s -w -buildid=" .
 
-      - name: Rename Windows EasierConnect
-        if: matrix.goos == 'windows'
+      - name: Create ZIP
         run: |
-          cd ./build_assets || exit 1
-          mv EasierConnect EasierConnect.exe
+          cd build_assets
+          ZIP_NAME="EasierConnect-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [ "${{ matrix.goarm }}" != "" ]; then
+            ZIP_NAME="${ZIP_NAME}-${{ matrix.goarm }}"
+          fi
+          ZIP_NAME="${ZIP_NAME}.zip"
+          if [ "${{ matrix.goos }}" == "windows" ]; then
+            zip -j "$ZIP_NAME" "EasierConnect.exe"
+          else
+            zip -j "$ZIP_NAME" "EasierConnect"
+          fi
+          mv "$ZIP_NAME" ..
 
-      - name: Create ZIP archive
-        run: |
-          pushd build_assets || exit 1
-          zip -9vr ../EasierConnect-$GOOS-$GOARCH${GOARM:+-$GOARM}.zip .
-          popd || exit 1
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
         with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
+          name: EasierConnect-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm != '' && '-' + matrix.goarm || '' }}
+          path: EasierConnect-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm != '' && '-' + matrix.goarm || '' }}.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: '*'
+          path: build_assets
+
+      - name: Create Release and Upload Assets
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          files: build_assets/*.zip
           draft: false
           prerelease: false
-
-      - name: Upload release binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./EasierConnect-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm:+-${{ matrix.goarm }}}}.zip
-          asset_name: EasierConnect-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goarm:+-${{ matrix.goarm }}}}.zip
-          asset_content_type: application/zip
