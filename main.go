@@ -92,7 +92,6 @@ func init() {
 }
 
 func main() {
-	startPprofServer()
 	if err := rootCmd.Execute(); err != nil {
 		log.Fatal(err)
 	}
